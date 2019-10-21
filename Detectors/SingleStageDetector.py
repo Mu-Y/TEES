@@ -18,16 +18,17 @@ from Detector import Detector
 from ExampleWriters.BioTextExampleWriter import BioTextExampleWriter
 import Evaluators.EvaluateInteractionXML as EvaluateInteractionXML
 import Utils.InteractionXML as InteractionXML
+import pdb
 
 class SingleStageDetector(Detector):
     """
-    A Detector for a text mining problem that can be represented as 
+    A Detector for a text mining problem that can be represented as
     a single classification task.
     """
     def __init__(self):
         Detector.__init__(self)
         self.deleteCombinedExamples = True
-        
+
     def beginModel(self, step, model, trainExampleFiles, testExampleFile, importIdsFromModel=None):
         """
         Begin the training process leading to a new model.
@@ -52,7 +53,7 @@ class SingleStageDetector(Detector):
                 # Catenate example files
                 if type(trainExampleFiles) in types.StringTypes:
                     combinedTrainExamples = trainExampleFiles
-                elif len(trainExampleFiles) == 1: 
+                elif len(trainExampleFiles) == 1:
                     combinedTrainExamples = trainExampleFiles[0]
                 else:
                     combinedTrainExamples = self.workDir + os.path.normpath(model.path)+"-"+self.tag+"combined-examples.gz"
@@ -62,14 +63,14 @@ class SingleStageDetector(Detector):
                         shutil.copyfileobj(gzip.open(trainExampleFile, 'rb'), combinedTrainExamplesFile)
                     combinedTrainExamplesFile.close()
                 # Upload training model
-                # The parameter grid is stored in the model as "*classifier-parameters-train" so that endModel can 
+                # The parameter grid is stored in the model as "*classifier-parameters-train" so that endModel can
                 # use it, and also as annotation for the trained model. The final selected parameter will
-                # be stored as "*classifier-parameter" 
+                # be stored as "*classifier-parameter"
                 classifierWorkDir = self.workDir + os.path.normpath(model.path) + "-" + self.tag + "models"
                 classifier = self.getClassifier(model.getStr(self.tag+"classifier-parameters-train"))(self.connection)
                 classifier.optimize(combinedTrainExamples, classifierWorkDir, model.getStr(self.tag+"classifier-parameters-train"), testExampleFile, model.get(self.tag+"ids.classes"), step="SUBMIT", evaluator=self.evaluator)
                 model.save()
-    
+
     def endModel(self, step, model, testExampleFile):
         if self.checkStep(step, False):
             if model != None:
@@ -80,7 +81,7 @@ class SingleStageDetector(Detector):
                 assert model.mode in ["a", "w"]
                 classifierWorkDir = self.workDir + os.path.normpath(model.path) + "-" + self.tag+ "models"
                 classifier = self.getClassifier(model.getStr(self.tag+"classifier-parameters-train"))(self.connection)
-                optimized = classifier.optimize("DUMMY", classifierWorkDir, model.getStr(self.tag+"classifier-parameters-train"), testExampleFile, model.get(self.tag+"ids.classes"), step="RESULTS", evaluator=self.evaluator, 
+                optimized = classifier.optimize("DUMMY", classifierWorkDir, model.getStr(self.tag+"classifier-parameters-train"), testExampleFile, model.get(self.tag+"ids.classes"), step="RESULTS", evaluator=self.evaluator,
                                                 determineThreshold=("TEES.threshold" in model.getStr(self.tag+"classifier-parameters-train")))
                 #self.addClassifierModel(model, optimized.model, optimized.parameters, optimized.threshold)
                 optimized.saveModel(model, self.tag)
@@ -91,8 +92,8 @@ class SingleStageDetector(Detector):
                     if os.path.exists(combinedTrainExamples):
                         print >> sys.stderr, "Deleting catenated training example file", combinedTrainExamples
                         os.remove(combinedTrainExamples)
-    
-    def train(self, trainData=None, optData=None, model=None, combinedModel=None, exampleStyle=None, 
+
+    def train(self, trainData=None, optData=None, model=None, combinedModel=None, exampleStyle=None,
               classifierParameters=None, parse=None, tokenization=None, task=None, fromStep=None, toStep=None,
               workDir=None, testData=None):
         self.initVariables(trainData=trainData, optData=optData, model=model, combinedModel=combinedModel, exampleStyle=exampleStyle, classifierParameters=classifierParameters, parse=parse, tokenization=tokenization)
@@ -121,7 +122,7 @@ class SingleStageDetector(Detector):
         if workDir != None:
             self.setWorkDir("")
         self.exitState()
-        
+
     def classify(self, data, model, output, parse=None, task=None, goldData=None, workDir=None, fromStep=None, omitSteps=None, validate=False):
         model = self.openModel(model, "r")
         self.enterState(self.STATE_CLASSIFY)
@@ -131,7 +132,7 @@ class SingleStageDetector(Detector):
         model = self.openModel(model, "r")
         if parse == None: parse = self.getStr(self.tag+"parse", model)
         workOutputTag = os.path.join(self.workDir, os.path.basename(output) + "-")
-        xml = self.classifyToXML(data, model, None, workOutputTag, 
+        xml = self.classifyToXML(data, model, None, workOutputTag,
             model.get(self.tag+"classifier-model", defaultIfNotExist=None), goldData, parse, float(model.getStr("recallAdjustParameter", defaultIfNotExist=1.0)))
         if (validate):
             self.structureAnalyzer.load(model)
@@ -142,33 +143,36 @@ class SingleStageDetector(Detector):
         EvaluateInteractionXML.run(self.evaluator, xml, data, parse)
         stParams = self.getBioNLPSharedTaskParams(self.bioNLPSTParams, model)
         if stParams["convert"]: #self.useBioNLPSTFormat:
-            extension = ".zip" if (stParams["convert"] == "zip") else ".tar.gz" 
+            extension = ".zip" if (stParams["convert"] == "zip") else ".tar.gz"
             Utils.STFormat.ConvertXML.toSTFormat(xml, output+"-events" + extension, outputTag=stParams["a2Tag"], writeExtra=(stParams["scores"] == True))
             if stParams["evaluate"]: #self.stEvaluator != None:
-                if task == None: 
+                if task == None:
                     task = self.getStr(self.tag+"task", model)
                 self.stEvaluator.evaluate(output+"-events" + extension, task)
-        self.deleteTempWorkDir()
+        # self.deleteTempWorkDir()
         self.exitState()
-        
+
     def classifyToXML(self, data, model, exampleFileName=None, tag="", classifierModel=None, goldData=None, parse=None, recallAdjust=None, compressExamples=True, exampleStyle=None, useExistingExamples=False):
         model = self.openModel(model, "r")
         if parse == None:
             parse = self.getStr(self.tag+"parse", model)
-        if useExistingExamples:
+        if useExistingExamples: # False
             assert exampleFileName != None
             assert os.path.exists(exampleFileName)
         if exampleFileName == None:
             exampleFileName = tag+self.tag+"examples"
             if compressExamples:
                 exampleFileName += ".gz"
-        if not useExistingExamples:
+        # pdb.set_trace()
+        if not useExistingExamples: # Program Entered here - Mu
             self.buildExamples(model, [data], [exampleFileName], [goldData], parse=parse, exampleStyle=exampleStyle)
         if classifierModel == None:
             classifierModel = model.get(self.tag+"classifier-model", defaultIfNotExist=None)
         #else:
         #    assert os.path.exists(classifierModel), classifierModel
         classifier = self.getClassifier(model.getStr(self.tag+"classifier-parameter", defaultIfNotExist=None))()
+        pdb.set_trace()
+        # classifier: Classifiers.SVMMultiClassClassifier.SVMMultiClassClassifier instance
         classifier.classify(exampleFileName, tag+self.tag+"classifications", classifierModel, finishBeforeReturn=True)
         threshold = model.getStr(self.tag+"threshold", defaultIfNotExist=None, asType=float)
         predictions = ExampleUtils.loadPredictions(tag+self.tag+"classifications", recallAdjust, threshold=threshold)

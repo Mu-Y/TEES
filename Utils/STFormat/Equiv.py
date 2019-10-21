@@ -4,6 +4,9 @@ thisPath = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(thisPath,"../..")))
 import Utils.Libraries.combine as combine
 import copy
+import pdb
+import ConvertXML
+import Utils.ElementTreeUtils as ETUtils
 
 def process(documents, debug=False):
     """
@@ -14,10 +17,10 @@ def process(documents, debug=False):
     for doc in documents:
         # Arg.siteOf links are temporarily removed, because during duplication the argument pointed to by siteOf
         # may end up in another event. To preserve the core/site pairs, when arguments are copied, their "full type"
-        # (e.g. Theme2) is restored. After duplication is done, core/site pairs can be relinked just the way they 
+        # (e.g. Theme2) is restored. After duplication is done, core/site pairs can be relinked just the way they
         # are linked when reading from ST-format files, because A) old arguments have an intact arg.siteIdentifier
         # B) new arguments have full types (e.g. Theme2) and C) the argument type combination is the same for each
-        # duplicate. 
+        # duplicate.
         doc.unlinkSites()
         #if doc.id != "PMC-2806624-00-TIAB":
         #    continue
@@ -34,6 +37,8 @@ def process(documents, debug=False):
         duplDict = {}
         for rootEvent in rootEvents:
             newEvents.extend(duplicateEquiv(rootEvent, duplDict, debug))
+            if doc.id == '10080532':
+                pdb.set_trace()
         # Regenerate the flat event list in the document
         doc.events = rebuildEventList(newEvents)
         doc.events.sort(key = lambda x: (x.id[0], int(x.id[1:].split(".")[0]), x.id[1:].split(".")[-1]) )
@@ -87,7 +92,7 @@ def hasNestedEquivs(event):
         if len(arg.target.equiv) != 0:
             rv = True
         elif arg.target.id[0] == "E": # nested event
-            rv = rv or hasNestedEquivs(arg.target) 
+            rv = rv or hasNestedEquivs(arg.target)
     return rv
 
 def makeEvent(model, argCombination, count, newEvent = None, finished=False, duplDict=None, debug=False, level=0):
@@ -115,7 +120,7 @@ def makeEvent(model, argCombination, count, newEvent = None, finished=False, dup
                 newEvent.addArgument(model.getArgumentFullType(arg), argCombination[0])
                 #newEvent.arguments.append([arg[0], argCombination[0], arg[2]])
             argCombination.pop(0) # pop first (depth-first iteration)
-            if debug: 
+            if debug:
                 print level * " ", "SIMP", model.id, [x.target.id for x in model.arguments], "/", arg.target.id, argCombination, "/", newEvent, newEvent.arguments
         else: # is a nested event
             #assert arg.siteOf == None, (model.id, arg)
@@ -132,7 +137,7 @@ def makeEvent(model, argCombination, count, newEvent = None, finished=False, dup
                         newArg.target.id = duplId
                         newEvent.arguments.append(newArg) # add to parent copy
                         duplDict[duplId] = newArg.target # add the new event to duplDict #duplDict[duplId] = newArg
-                        if debug: 
+                        if debug:
                             print level * " ", "NEST(new)", model.id, [x.target.id for x in model.arguments], "/", arg.target.id, argCombination, "/", newEvent, newEvent.arguments
                         createdEvents += makeEvent(arg.target, argCombination, count, newArg.target, finished, duplDict, level=level+1, debug=debug) # Continue processing with next level of model and copy
                     else:
@@ -140,7 +145,7 @@ def makeEvent(model, argCombination, count, newEvent = None, finished=False, dup
                         argCombination.pop(0) # pop first (depth-first iteration)
                         #newEvent.arguments.append(duplDict[duplId]) # add to parent copy
                         newEvent.arguments.append(newArg) # add to parent copy
-                        if debug: 
+                        if debug:
                             print level * " ", "NEST(old)", model.id, [x.target.id for x in model.arguments], "/", arg.target.id, argCombination, "/", newEvent, newEvent.arguments
                         #makeEvent(arg[1], argCombination, count, duplDict[duplId][1], True, duplDict, level=level+1, debug=debug) # Continue processing with next level of model and copy
                         createdEvents += makeEvent(arg.target, argCombination, count, duplDict[duplId], True, duplDict, level=level+1, debug=debug) # Continue processing with next level of model and copy
@@ -148,7 +153,7 @@ def makeEvent(model, argCombination, count, newEvent = None, finished=False, dup
                     newArg = Argument(model.getArgumentFullType(arg), argCombination[0]) #[arg[0], argCombination[0], None]
                     argCombination.pop(0) # pop first (depth-first iteration)
                     newEvent.arguments.append(newArg) # add to parent copy
-                    if debug: 
+                    if debug:
                         print level * " ", "STOP", model.id, [x.target.id for x in model.arguments], "/", arg.target.id, argCombination, "/", newEvent, newEvent.arguments
                     # stop recursion here, it has been likewise stopped in getArgs
                     #makeEvent(arg[1], argCombination, count, newArg[1], True, duplDict, level=level+1) # Continue processing with next level of model and copy
@@ -158,6 +163,8 @@ def duplicateEquiv(event, duplDict, debug):
     """
     If the event (event tree) has arguments which have Equiv-statements, create a new event
     for each combination. Otherwise, return just the existing event.
+    params:
+        event: root Event
     """
     argList = [] # depth-first argument list
     hasEquiv = getArgs(event, argList)
@@ -216,10 +223,13 @@ if __name__=="__main__":
     optparser.add_option("-o", "--output", default=None, dest="output", help="")
     optparser.add_option("-d", "--debug", default=False, action="store_true", dest="debug", help="")
     (options, args) = optparser.parse_args()
-    
+
     print >> sys.stderr, "Loading documents from", options.input
     documents = loadSet(options.input)
     print >> sys.stderr, "Resolving equivalences"
     process(documents, debug=options.debug)
     print >> sys.stderr, "Writing documents to", options.output
-    writeSet(documents, options.output)
+    # writeSet(documents, options.output)
+    xml = ConvertXML.toInteractionXML(documents, 'GE09', None)
+    ETUtils.write(xml, options.output)
+

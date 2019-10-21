@@ -37,6 +37,7 @@ import Utils.Convert.convertBioNLP
 import Utils.Convert.convertPPI
 import Utils.Convert.convertChemProt
 import Evaluators.BioNLP11GeniaTools
+import pdb
 
 def clsStep(cls, method):
     return lambda *args, **kwargs: getattr(cls(), method)(*args, **kwargs)
@@ -54,14 +55,14 @@ class Preprocessor(ToolChain):
         self.parseName = parseName
         ToolChain.__init__(self, steps)
         self.modelParameterStringName = "preprocessorParams"
-        
+
         #self.initSteps()
         #self.initPresets()
         #if steps != None:
         #    self.defineSteps(steps)
         #self.defineSteps()
         #self.steps = self.getSteps(steps)
-    
+
     def defineSteps(self):
         self.defGroup("Corpus Conversion")
         self.defStep("DOWNLOAD", self.downloadCorpus, {"corpus":None, "outDir":None, "downloadDir":None, "redownload":False, "debug":False}, {"input":"corpus", "output":"outDir"})
@@ -109,7 +110,7 @@ class Preprocessor(ToolChain):
         self.defStep("SAVE", self.save)
         self.defStep("EXPORT", self.export, {"formats":None, "exportIds":None, "useSetDirs":False})
         self.defStep("EXPORT_STFORMAT", Utils.STFormat.ConvertXML.toSTFormat, {"outputTag":"a2", "useOrigIds":False, "debug":False, "skipArgs":[], "validate":True, "writeExtra":False, "allAsRelations":False, "exportIds":None})
-    
+
 #     def initSteps(self):
 #         self.initStepGroup("Corpus Conversion")
 #         self.initStep("CONVERT-BIONLP", Utils.Convert.convertBioNLP.convert, {"corpora":None, "outDir":None, "downloadDir":None, "redownload":False, "makeIntermediateFiles":False, "evaluate":False, "processEquiv":True, "analysisMode":"AUTO", "debug":False, "preprocessorSteps":None, "preprocessorParameters":None, "logPath":"AUTO"}, "convert-bionlp.xml", {"input":"corpora", "output":"outDir"})
@@ -137,7 +138,7 @@ class Preprocessor(ToolChain):
 #         self.initStepGroup("Alternative Parsing")
 #         self.initStep("IMPORT-PARSE", clsStep(ParseConverter, "insertParses"), {"parseDir":None, "debug":False, "extensions":None, "subDirs":None, "docMatchKeys":None, "conllFormat":None, "splitting":True, "unescapeFormats":"AUTO"}, "import-parse.xml")
 #         #self.allSteps["IMPORT-PARSE", clsStep(ParseConverter, ParseConverter.insertParses), {"parseDir":None, "debug":False}, "import-parse.xml"]
-#         #self.allSteps["IMPORT-PARSE", lambda *args, **kwargs: ParseConverter().insertParses(*args, **kwargs), {"parseDir":None, "debug":False}, "import-parse.xml"]        
+#         #self.allSteps["IMPORT-PARSE", lambda *args, **kwargs: ParseConverter().insertParses(*args, **kwargs), {"parseDir":None, "debug":False}, "import-parse.xml"]
 #         self.initStepGroup("Post-parsing")
 #         self.initStep("SPLIT-NAMES", ProteinNameSplitter.mainFunc, {"parseName":self.parseName, "removeOld":True}, "split-names.xml")
 #         self.initStep("FIND-HEADS", FindHeads.findHeads, {"parse":self.parseName, "removeExisting":True}, "heads.xml")
@@ -151,14 +152,14 @@ class Preprocessor(ToolChain):
 #         self.initStep("SAVE", self.save, {}, None)
 #         self.initStep("EXPORT", self.export, {"formats":None, "exportIds":None, "useSetDirs":False}, None)
 #         self.initStep("EXPORT-STFORMAT", Utils.STFormat.ConvertXML.toSTFormat, {"outputTag":"a2", "useOrigIds":False, "debug":False, "skipArgs":[], "validate":True, "writeExtra":False, "allAsRelations":False, "exportIds":None}, None)
-    
+
 #     def initPresets(self):
 #         self.presets["PRESET-CONVERT-PARSE"] = ["LOAD", "EXPORT"]
 #         self.presets["PRESET-REPARSE-BIO-CORPUS"] = ["MERGE-SETS", "REMOVE-ANALYSES", "REMOVE-HEADS", "BLLIP-BIO", "STANFORD-CONVERT", "FIND-HEADS", "SPLIT-NAMES", "DIVIDE-SETS"]
 #         self.presets["PRESET-PREPROCESS-BIO"] = ["LOAD", "GENIA-SPLITTER", "BANNER", "BLLIP-BIO", "STANFORD-CONVERT", "SPLIT-NAMES", "FIND-HEADS", "SAVE"]
 #         #self.presets["PRESET-PARSE-BIO"] = ["CONVERT", "GENIA-SPLITTER", "BLLIP-BIO", "STANFORD-CONVERT", "SPLIT-NAMES", "FIND-HEADS", "DIVIDE-SETS"]
 #         #self.presets["PRESET-INSERT-PARSE"] = ["CONVERT", "REMOVE-ANALYSES", "IMPORT-PARSE", "DIVIDE-SETS"]
-    
+
     def getHelpString(self):
         s = "==========" + " Available preprocessor steps " + "==========" + "\n"
         currentGroup = None
@@ -171,7 +172,7 @@ class Preprocessor(ToolChain):
                 s += " = alias for [" + ",".join([x.name for x in step.func]) + "]"
             s += "\n"
         return s
-    
+
 #     def getDefaultSteps(self):
 #         steps = []
 #         steps.append( ("CONVERT", self.convert, {"dataSetNames":None, "corpusName":None}, "documents.xml") )
@@ -182,7 +183,7 @@ class Preprocessor(ToolChain):
 #         steps.append( ("FIND-HEADS", FindHeads.findHeads, {"parse":self.parseName, "removeExisting":True}, "heads.xml") )
 #         steps.append( ("DIVIDE-SETS", self.divideSets, {"saveCombined":False}, "dummy.xml") )
 #         return steps
-#     
+#
 #     def addParsingSteps(self, steps):
 #         # Add the constituency parser
 #         if self.constParser == "BLLIP-BIO":
@@ -198,7 +199,7 @@ class Preprocessor(ToolChain):
 #             steps.append( (self.depParser + "-DEP", StanfordParser.parseCls, {"parserName":self.parseName, "debug":False, "action":"convert", "outputFormat":None}, "dependencies.xml") )
 #         elif self.depParser == "SYNTAXNET":
 #             steps.append( (self.depParser + "-DEP", SyntaxNetParser.parseCls, {"parserName":self.parseName, "debug":False, "modelDir":None}, "dependencies.xml") )
-    
+
     def process(self, source, output=None, model=None, fromStep=None, toStep=None, omitSteps=None, logPath=None):
         if logPath == "AUTO":
             if output != None:
@@ -221,7 +222,7 @@ class Preprocessor(ToolChain):
         #    raise Exception("Preprocessor step 'CONVERT' may not be omitted")
         #if isinstance(source, basestring) and os.path.basename(source).isdigit(): # PMID
         #    print >> sys.stderr, "Preprocessing PubMed abstract", os.path.basename(source)
-        #    source = Utils.Download.getPubMed(int(source))   
+        #    source = Utils.Download.getPubMed(int(source))
         # Initialize variables and save existing default values
         #self.intermediateFileTag = corpusName
         #parameters = self.getParameters(parameters, model)
@@ -239,11 +240,11 @@ class Preprocessor(ToolChain):
         if logPath != None:
             Stream.closeLog(logPath)
         return xml
-    
+
     ###########################################################################
     # Loading Steps
     ###########################################################################
-    
+
     def load(self, input, dataSetNames=None, corpusName=None, output=None, extensions=None):
         if isinstance(input, basestring) and input.isdigit():
             return self.downloadPubmed(input, output)
@@ -269,7 +270,7 @@ class Preprocessor(ToolChain):
         else:
             print >> sys.stderr, "Processing source as interaction XML"
             return ETUtils.ETFromObj(input)
-    
+
     def downloadCorpus(self, corpus, outDir, downloadDir, redownload, debug):
         if corpus in Utils.Convert.convertPPI.PPI_CORPORA:
             print >> sys.stderr, "Downloading PPI corpus", corpus
@@ -277,14 +278,14 @@ class Preprocessor(ToolChain):
         else:
             print >> sys.stderr, "Downloading BioNLP Shared Task corpus", corpus
             return Utils.Convert.convertBioNLP.convertCorpus(corpus, outDir, downloadDir, redownload, makeIntermediateFiles=False, analysisMode="SKIP", debug=debug)
-        
+
     def downloadPubmed(self, input, output=None):
         assert isinstance(input, basestring) and input.isdigit() # PMID
         print >> sys.stderr, "Preprocessing PubMed abstract", input
         txtPath = Utils.Download.getPubMed(int(input))
         documents = Utils.STFormat.STTools.loadSet(txtPath)
         return Utils.STFormat.ConvertXML.toInteractionXML(documents, "PubMed", output)
-    
+
     def getSourceDirs(self, input, dataSetNames=None):
         if os.path.exists(input) and os.path.isfile(input):
             ext = None
@@ -296,7 +297,7 @@ class Preprocessor(ToolChain):
         if type(inputDirs) in types.StringTypes:
             dataSetDirs = inputDirs.split(",")
         # Get the list of "train", "devel" etc names for these sets
-        if dataSetNames == None: 
+        if dataSetNames == None:
             dataSetNames = []
         elif type(dataSetNames) in types.StringTypes:
             dataSetNames = dataSetNames.split(",")
@@ -317,7 +318,7 @@ class Preprocessor(ToolChain):
         for inDir in inDirs:
             inDir["extensions"] = set([x.rsplit(".", 1)[-1] for x in os.listdir(inDir["path"]) if "." in x])
         return inDirs
-        
+
     def convert(self, input, dataSetNames=None, corpusName=None, output=None, extensions=None, origIdType=None):
         assert isinstance(input, basestring) and (os.path.isdir(input) or input.endswith(".tar.gz") or input.endswith(".txt") or "," in input)
         print >> sys.stderr, "Converting ST-format to Interaction XML"
@@ -343,7 +344,10 @@ class Preprocessor(ToolChain):
         if len(documents) > 0:
             print >> sys.stderr, "Resolving equivalences"
             Utils.STFormat.Equiv.process(documents)
+            pdb.set_trace()
             xml = Utils.STFormat.ConvertXML.toInteractionXML(documents, corpusName, output)
+            # after the execution of the above line, documents still only contains the raw number of events plus the duplicated ones from Equiv handling
+            # pdb.set_trace()
         # Add parse files into the corpus
         parseExtensions = set(["sentences", "tok", "ptb", "sd", "conll", "conllx", "conllu", "epe"])
         if extensions != None:
@@ -355,11 +359,11 @@ class Preprocessor(ToolChain):
                     xml = IXMLUtils.makeEmptyCorpus(corpusName)
                 xml = ParseConverter().insertParses(sourceDir["path"], xml, output, "McCC", sourceDir["extensions"], origIdType=origIdType)
         return xml
-    
+
     ###########################################################################
     # Saving Steps
     ###########################################################################
-    
+
     def save(self, input, output=None):
         if "*" in output:
             if output.endswith("*.xml"):
@@ -369,10 +373,10 @@ class Preprocessor(ToolChain):
                 extension = extension.strip(".")
                 if not os.path.exists(exportPath):
                     os.makedirs(exportPath)
-                self.export(input, exportPath, [extension]) 
+                self.export(input, exportPath, [extension])
         else:
             return ToolChain.save(self, input, output)
-    
+
     def export(self, input, output, formats=None, exportIds=None, useSetDirs=False):
         print >> sys.stderr, "Exporting formats:", formats
         exportedParses = False
@@ -391,7 +395,7 @@ class Preprocessor(ToolChain):
         if len(stFormats) > 0:
             Utils.STFormat.ConvertXML.toSTFormat(input, output, files=formats, exportIds=exportIds, clear=not exportedParses)
         return input
-    
+
     def divideSets(self, input, output, saveCombined=False):
         if output != None:
             print >> sys.stderr, "Dividing into sets"
@@ -437,14 +441,14 @@ class Preprocessor(ToolChain):
 #     debug.add_option("--debug", default=False, action="store_true", dest="debug", help="Set debug mode for all steps")
 #     optparser.add_option_group(debug)
 #     (options, args) = optparser.parse_args()
-#     
+#
 #     #if options.steps == None and not options.listPresets:
 #     #    raise Exception("No preprocessing steps defined")
 #     if options.steps != None:
 #         options.steps = [x.strip() for x in options.steps.split(",")]
 #     if options.omitSteps != None:
 #         options.omitSteps = options.omitSteps.split(",")
-#         
+#
 #     preprocessor = Preprocessor(options.steps, options.parseName, options.requireEntities)
 #     if options.steps == None:
 #         print >> sys.stderr, "==========", "Available preprocessor steps", "=========="
@@ -455,13 +459,13 @@ class Preprocessor(ToolChain):
 #                 #print >> sys.stderr, "*", preprocessor.groups[groupIndex], "*"
 #                 print >> sys.stderr, "[" + preprocessor.groups[groupIndex] + "]"
 #             print >> sys.stderr, " ", step["name"] + ": " + str(step["argDict"])
-#         print >> sys.stderr, "==========", "Available preprocessor presets", "=========="  
+#         print >> sys.stderr, "==========", "Available preprocessor presets", "=========="
 #         for name in sorted(preprocessor.presets.keys()):
 #             print >> sys.stderr, name + ": " + ",".join(preprocessor.presets[name])
 #     else:
 #         #options.constParser = options.constParser if options.constParser != "None" else None
 #         #options.depParser = options.depParser if options.depParser != "None" else None
-#         
+#
 #         #if not options.noLog:
 #         #    Stream.openLog(os.path.join(options.output + "-log.txt"))
 #             #log(False, True, os.path.join(options.output, options.corpus + "-log.txt"))

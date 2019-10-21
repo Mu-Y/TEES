@@ -13,10 +13,11 @@ import Core.ExampleUtils as ExampleUtils
 import Core.SentenceGraph
 from ExampleBuilders.ExampleStats import ExampleStats
 from Detectors.StructureAnalyzer import StructureAnalyzer
+import pdb
 
 class ExampleBuilder:
     structureAnalyzer = None
-    """ 
+    """
     ExampleBuilder is the abstract base class for specialized example builders.
     Example builders take some data and convert it to examples usable by e.g. SVMs.
     An example builder writes three files, an example-file (in extended Joachim's
@@ -24,35 +25,35 @@ class ExampleBuilder:
     for the class and feature id-numbers. An example builder can also be given
     pre-existing sets of class and feature ids (optionally in files) so that the
     generated examples are consistent with other, previously generated examples.
-    """    
+    """
     def __init__(self, classSet=None, featureSet=None):
         if(type(classSet) == types.StringType):
             self.classSet = IdSet(filename=classSet)
         else:
             self.classSet = classSet
-        
+
         if(type(featureSet) == types.StringType):
             self.featureSet = IdSet(filename=featureSet)
         else:
             self.featureSet = featureSet
-        
-        self.featureTag = ""      
+
+        self.featureTag = ""
         self.exampleStats = ExampleStats()
         self.parse = None
         self.tokenization = None
         #self.idFileTag = None
         self.classIdFilename = None
         self.featureIdFilename = None
-        
+
         self.styles = {}
         self._defaultParameters = None
         self._parameterValueLimits = None
         self._setDefaultParameters(["sentenceLimit"])
         self.debug = False
-    
+
     def hasStyle(self, style):
         return style in self.styles and not self.styles[style]
-    
+
     def _setDefaultParameters(self, defaults=None, valueLimits=None):
         # Initialize
         if self._defaultParameters == None:
@@ -63,13 +64,13 @@ class ExampleBuilder:
         self._defaultParameters.update(newParameters)
         if valueLimits != None:
             self._parameterValueLimits.update(valueLimits)
-    
+
     def getParameters(self, parameters):
         return Utils.Parameters.get(parameters, defaults=self._defaultParameters, valueLimits=self._parameterValueLimits)
-    
+
     def setFeature(self, name, value):
         self.features[self.featureSet.getId(self.featureTag+name)] = value
-    
+
     def getElementCounts(self, filename):
         print >> sys.stderr, "Counting elements:",
         if filename.endswith(".gz"):
@@ -111,12 +112,12 @@ class ExampleBuilder:
             outfile = gzip.open(output, openStyle)
         else:
             outfile = open(output, openStyle)
-        
+
         # Build examples
         self.exampleCount = 0
-        if type(input) in types.StringTypes:
+        if type(input) in types.StringTypes: # Entered here - Mu
             self.elementCounts = self.getElementCounts(input)
-            if self.elementCounts["sentences"] > 0:
+            if self.elementCounts["sentences"] > 0: # Entered here, 1448 - Mu
                 self.progress = ProgressCounter(self.elementCounts["sentences"], "Build examples")
             else:
                 self.elementCounts = None
@@ -124,17 +125,22 @@ class ExampleBuilder:
         else:
             self.elementCounts = None
             self.progress = ProgressCounter(None, "Build examples")
-        
-        self.calculatePredictedRange(self.getSentences(input, self.parse, self.tokenization))
-        
+        # pdb.set_trace()
+
+        # This line generates log below:(getSentences function generates the first 2 lines)
+        # Making sentence graphs (GE09.d149.s5): 100.00 % (0:0:1.113)
+        # Skipped 381 duplicate interaction edges in SentenceGraphs
+        # Defining predicted value range: None - Mu
+        self.calculatePredictedRange(self.getSentences(input, self.parse, self.tokenization)) # self.parse: mccc; self.tokenization: None
+
         removeIntersentenceInteractions = True
         if "keep_intersentence" in self.styles and self.styles["keep_intersentence"]:
             print >> sys.stderr, "Keeping intersentence interactions for input corpus"
             removeIntersentenceInteractions = False
-        inputIterator = getCorpusIterator(input, None, self.parse, self.tokenization, removeIntersentenceInteractions=removeIntersentenceInteractions)            
-        
+        inputIterator = getCorpusIterator(input, None, self.parse, self.tokenization, removeIntersentenceInteractions=removeIntersentenceInteractions)
+
         #goldIterator = []
-        if gold != None:
+        if gold != None: # Entered here - Mu
             removeGoldIntersentenceInteractions = True
             if "keep_intersentence_gold" in self.styles and self.styles["keep_intersentence_gold"]:
                 print >> sys.stderr, "Keeping intersentence interactions for gold corpus"
@@ -143,13 +149,18 @@ class ExampleBuilder:
             for inputSentences, goldSentences in itertools.izip_longest(inputIterator, goldIterator, fillvalue=None):
                 assert inputSentences != None
                 assert goldSentences != None
+                # pdb.set_trace()
+                # see the documentation of function processSentence() in this script
+                # inputSentences[1].sentence is the unmerged version
+                # inputSentences[1].sentenceGraph is the merged version, meaning that when generating sentenceGraph,
+                # duplicated intereactions are removed(actually skipped, not added to the graph, but not really removed) - Mu
                 self.processDocument(inputSentences, goldSentences, outfile, structureAnalyzer=structureAnalyzer)
         else:
             for inputSentences in inputIterator:
                 self.processDocument(inputSentences, None, outfile, structureAnalyzer=structureAnalyzer)
         outfile.close()
         self.progress.endUpdate()
-        
+
         # Show statistics
         print >> sys.stderr, "Examples built:", self.exampleCount
         print >> sys.stderr, "Features:", len(self.featureSet.getNames())
@@ -157,13 +168,13 @@ class ExampleBuilder:
         print >> sys.stderr, "Style:", Utils.Parameters.toString(self.getParameters(self.styles))
         if self.exampleStats.getExampleCount() > 0:
             self.exampleStats.printStats()
-    
+
         # Save Ids
         if allowNewIds:
             self.saveIds()
-    
+
     def processDocument(self, sentences, goldSentences, outfile, structureAnalyzer=None):
-        #calculatePredictedRange(self, sentences)            
+        #calculatePredictedRange(self, sentences)
         for i in range(len(sentences)):
             sentence = sentences[i]
             goldSentence = None
@@ -171,9 +182,15 @@ class ExampleBuilder:
                 goldSentence = goldSentences[i]
             self.progress.update(1, "Building examples ("+sentence.sentence.get("id")+"): ")
             self.processSentence(sentence, outfile, goldSentence, structureAnalyzer=structureAnalyzer)
-    
+
     def processSentence(self, sentence, outfile, goldSentence=None, structureAnalyzer=None):
+        '''
+        sentence: Utils.InteractionXML.SentenceElements.SentenceElements instance
+        sentence.sentence: Element 'sentence' in the xml file
+        '''
+        # pdb.set_trace()
         # Process filtering rules
+        # does NOT entered here since self.styles["sentenceLimit"] is None - Mu
         if "sentenceLimit" in self.styles and self.styles["sentenceLimit"]: # Rules for limiting which sentences to process
             # Get the rule list
             limitRules = self.styles["sentenceLimit"]
@@ -197,7 +214,10 @@ class ExampleBuilder:
             goldGraph = None
             if goldSentence != None:
                 goldGraph = goldSentence.sentenceGraph
+            # c, sentenceGraph_return, argCombinations_return = self.buildExamplesFromGraph(sentence.sentenceGraph, outfile, goldGraph, structureAnalyzer=structureAnalyzer)
+            # self.exampleCount += c
             self.exampleCount += self.buildExamplesFromGraph(sentence.sentenceGraph, outfile, goldGraph, structureAnalyzer=structureAnalyzer)
+        # return sentenceGraph_return, argCombinations_return
 
     @classmethod
     def run(cls, input, output, parse, tokenization, style, classIds=None, featureIds=None, gold=None, append=False, allowNewIds=True, structureAnalyzer=None, debug=False):
@@ -210,7 +230,7 @@ class ExampleBuilder:
         if not isinstance(style, types.StringTypes):
             style = Utils.Parameters.toString(style)
         print >> sys.stderr, "  style:", style
-        if tokenization == None: 
+        if tokenization == None:
             print >> sys.stderr, "  parse:", parse
         else:
             print >> sys.stderr, "  parse:", parse + ", tokenization:", tokenization
@@ -226,13 +246,13 @@ class ExampleBuilder:
 
     def buildExamplesFromGraph(self, sentenceGraph, outfile, goldGraph=None):
         raise NotImplementedError
-    
+
     def definePredictedValueRange(self, sentences, elementName):
         pass
-    
+
     def getPredictedValueRange(self):
         return None
-    
+
     @classmethod
     def getIdSets(self, classIds=None, featureIds=None, allowNewIds=True):
         # Class ids
@@ -254,7 +274,7 @@ class ExampleBuilder:
             print >> sys.stderr, "No predefined feature names"
             featureSet = None
         return classSet, featureSet
-        
+
 #        if idFileTag != None and os.path.exists(idFileTag + ".feature_names.gz") and os.path.exists(idFileTag + ".class_names"):
 #            print >> sys.stderr, "Using predefined class and feature names"
 #            featureSet = IdSet()
@@ -271,8 +291,11 @@ class ExampleBuilder:
 
 
     def getSentences(self, input, parse, tokenization, removeNameInfo=False):
-        if type(input) != types.ListType:
+        # pdb.set_trace()
+        # input is the path to the corpus xml file
+        if type(input) != types.ListType: # Program entered here - Mu
             # Load corpus and make sentence graphs
+            # pdb.set_trace()
             corpusElements = Core.SentenceGraph.loadCorpus(input, parse, tokenization, removeNameInfo=removeNameInfo)
             sentences = []
             for sentence in corpusElements.sentences:
@@ -317,13 +340,13 @@ if __name__=="__main__":
     optparser = OptionParser(usage="%prog [options]\nBuild machine learning examples from interaction XML.")
     addBasicOptions(optparser)
     (options, args) = optparser.parse_args()
-    
+
     if options.gold == "AUTO":
         options.gold = options.input
-    
+
     print >> sys.stderr, "Importing modules"
     exec "from ExampleBuilders." + options.exampleBuilder + " import " + options.exampleBuilder + " as ExampleBuilderClass"
-    
+
     structureAnalyzer = None
     if options.structure == None: # define structure from input file
         structureAnalyzer = StructureAnalyzer()
@@ -333,6 +356,6 @@ if __name__=="__main__":
     elif options.structure != "NONE": # a file name
         structureAnalyzer = StructureAnalyzer(options.structure)
     #input, output, parse, tokenization, style, classIds=None, featureIds=None, gold=None, append=False)
-    ExampleBuilderClass.run(options.input, options.output, options.parse, None, options.parameters, 
-                            options.classes, options.features, allowNewIds=options.addIds, 
+    ExampleBuilderClass.run(options.input, options.output, options.parse, None, options.parameters,
+                            options.classes, options.features, allowNewIds=options.addIds,
                             structureAnalyzer=structureAnalyzer, debug=options.debug, gold=options.gold)

@@ -12,13 +12,14 @@ import Utils.Stream as Stream
 import Utils.Download
 from Utils.Connection.Connection import getConnection
 from Detectors.Preprocessor import Preprocessor
+import pdb
 
-def classify(input, model, output, workDir=None, step=None, omitSteps=None, 
-             goldInput=None, detector=None, debug=False, clear=False, 
+def classify(input, model, output, workDir=None, step=None, omitSteps=None,
+             goldInput=None, detector=None, debug=False, clear=False,
              preprocessorTag="-preprocessed.xml.gz", preprocessorParams=None, bioNLPSTParams=None):
     """
     Detect events or relations from text.
-    
+
     @param input: The input file in either interaction XML or BioNLP ST format. Can also be a PMID or TEES default corpus name.
     @param model: A path to a model file or the name of a TEES default model.
     @param output: The output file stem. Output files will be of the form output-*
@@ -45,15 +46,15 @@ def classify(input, model, output, workDir=None, step=None, omitSteps=None,
     model = getModel(model)
     # Define processing steps
     selector, detectorSteps, omitDetectorSteps = getSteps(step, omitSteps, ["PREPROCESS", "CLASSIFY"])
+
     if not preprocess:
         selector.markOmitSteps("PREPROCESS")
-    
-    classifyInput = input
-    if selector.check("PREPROCESS"):
+    classifyInput = input # classifyInput: '/auto/nlg-05/yangmu/bionlp/myTEES/TEES/raw_corpora/reparse_from_installed_GE09/GE09-devel.xml'
+    if selector.check("PREPROCESS"): # will return False when Preprocessing is omitted
         if preprocessorParams == None:
             preprocessorParams = ["LOAD", "GENIA_SPLITTER", "BANNER", "BLLIP_BIO", "STANFORD_CONVERT", "SPLIT_NAMES", "FIND_HEADS", "SAVE"]
         preprocessor = Preprocessor(preprocessorParams)
-        if debug: 
+        if debug:
             preprocessor.setArgForAllSteps("debug", True)
         preprocessorOutput = output + preprocessorTag
         #preprocessor.debug = debug
@@ -71,9 +72,10 @@ def classify(input, model, output, workDir=None, step=None, omitSteps=None,
             #preprocessor.setIntermediateFiles({"Convert":None, "SPLIT-SENTENCES":None, "PARSE":None, "CONVERT-PARSE":None, "SPLIT-NAMES":None})
             # Process input into interaction XML
             classifyInput = preprocessor.process(input, preprocessorOutput, model)
-    
+
     if selector.check("CLASSIFY"):
         detector = getDetector(detector, model)[0]() # initialize detector object
+        # pdb.set_trace()
         detector.debug = debug
         detector.bioNLPSTParams = detector.getBioNLPSharedTaskParams(bioNLPSTParams, model)
         detector.classify(classifyInput, model, output, goldData=goldInput, fromStep=detectorSteps["CLASSIFY"], omitSteps=omitDetectorSteps["CLASSIFY"], workDir=workDir)
@@ -138,7 +140,7 @@ if __name__=="__main__":
         print >> sys.stderr, "Found Psyco, using"
     except ImportError:
         print >> sys.stderr, "Psyco not installed"
-        
+
     from optparse import OptionParser
     optparser = OptionParser(description="Predict events/relations")
     optparser.add_option("-i", "--input", default=None, dest="input", help="input")
@@ -156,8 +158,8 @@ if __name__=="__main__":
     optparser.add_option("--clearAll", default=False, action="store_true", dest="clearAll", help="Delete all files")
     optparser.add_option("--debug", default=False, action="store_true", dest="debug", help="More verbose output")
     (options, args) = optparser.parse_args()
-    
+
     assert options.output != None
-    classify(options.input, options.model, options.output, options.workdir, options.step, options.omitSteps, 
+    classify(options.input, options.model, options.output, options.workdir, options.step, options.omitSteps,
              options.gold, options.detector, options.debug, options.clearAll,
              preprocessorParams=options.preprocessorParams, bioNLPSTParams=options.bioNLPSTParams)

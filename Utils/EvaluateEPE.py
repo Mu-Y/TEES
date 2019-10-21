@@ -1,7 +1,9 @@
 import sys, os
 import shutil
+import pdb
 mainTEESDir = os.path.abspath(os.path.join(__file__, "../.."))
 sys.path.append(mainTEESDir)
+pdb.set_trace()
 from Detectors.Preprocessor import Preprocessor
 from collections import defaultdict
 from train import train
@@ -52,7 +54,7 @@ def combineParses(inDir, outDir, subDirectories):
                 shutil.copy2(os.path.join(path, filename), dst)
                 counts[path] += 1
     print >> sys.stderr, "Found epe parse files:", dict(counts)
-    return outDir    
+    return outDir
 
 def ask(question):
     valid = {"yes": True, "y": True, "no": False, "n": False, "":False}
@@ -74,17 +76,17 @@ def run(inPath, outPath, subDirs, model, connection, numJobs, subTask=3, posTags
     if not os.path.exists(outPath):
         print >> sys.stderr, "Making output directory", outPath
         os.makedirs(outPath)
-    
+
     # Begin logging
     logPath = beginLog(outPath)
-    
+
     # Collect the parse files
     parseDir = os.path.join(outPath, "parses")
     if not os.path.exists(parseDir) or len(os.listdir(parseDir)) == 0:
         parseDir = combineParses(inPath, parseDir, subDirs)
     else:
         print >> sys.stderr, "Using collected parses from", parseDir
-    
+
     # Import the parses
     corpusDir = os.path.join(outPath, "corpus")
     if not os.path.exists(corpusDir):
@@ -99,17 +101,17 @@ def run(inPath, outPath, subDirs, model, connection, numJobs, subTask=3, posTags
         preprocessor.process(modelPattern, os.path.join(corpusDir, model), logPath=None)
     else:
         print >> sys.stderr, "Using imported parses from", corpusDir
-    
+
     # Train the model
     if training:
         connection = connection.replace("$JOBS", str(numJobs))
         if subTask > 0:
             model = model + "." + str(subTask)
         train(outPath, model, parse="McCC", debug=debug, connection=connection, corpusDir=corpusDir, subset=subset, log=None) #classifierParams={"examples":None, "trigger":"150000", "recall":None, "edge":"7500", "unmerging":"2500", "modifiers":"10000"})
-        
+
     # Close the log
     endLog(logPath)
-    
+
 if __name__== "__main__":
     from optparse import OptionParser
     optparser = OptionParser(description="Train a TEES model using EPE parses")
@@ -129,6 +131,6 @@ if __name__== "__main__":
     optparser.add_option("--subset", default=None, dest="subset", help="")
     optparser.add_option("--noTraining", default=False, action="store_true", help="Do only the preprocessing")
     (options, args) = optparser.parse_args()
-    
-    run(options.input, options.output, options.subdirs, options.model, options.connection, options.numJobs, options.subTask, options.pos, options.testSet, 
+
+    run(options.input, options.output, options.subdirs, options.model, options.connection, options.numJobs, options.subTask, options.pos, options.testSet,
         not options.noClear, options.debug, options.force, training=not options.noTraining, preprocessorSteps=options.preprocessorSteps, subset=options.subset)

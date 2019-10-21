@@ -5,6 +5,7 @@ import Utils.ElementTreeUtils as ETUtils
 #import Utils.Parameters as Parameters
 import itertools
 import copy
+import pdb
 
 #NOTHING = object()
 
@@ -21,10 +22,10 @@ class Step():
                 if self.ioArgNames[key] not in self.argDict:
                     self.argDict[self.ioArgNames[key]] = None
         self.group = group
-    
+
     def isAlias(self):
         return isinstance(self.func, (list, tuple))
-    
+
     def expandAlias(self):
         if self.isAlias():
             steps = self.func
@@ -33,16 +34,16 @@ class Step():
             return steps
         else:
             return [self]
-    
+
     def setArg(self, name, value):
         assert name in self.argDict
         self.argDict[name] = value
-    
+
     def __call__(self, *args, **kwargs):
         clone = copy.copy(self) # Make a new copy for modifying the arguments of this step "prototype"
         clone.argDict = self.getArgs(*args, **kwargs)
         return clone
-    
+
     def run(self, *args, **kwargs):
         arguments = self.getArgs(*args, **kwargs)
         print >> sys.stderr, "Running step", self.name, "with arguments", arguments
@@ -50,7 +51,7 @@ class Step():
             return self.func(**arguments)
         else:
             return self.func(self.funcCls(), **arguments)
-    
+
     def getArgs(self, *args, **kwargs):
         if len(args) > 0:
             assert self.argListKey != None, (self.argListKey, args, kwargs)
@@ -83,7 +84,7 @@ class ToolChain(Detector):
         self.compressIntermediateFiles = True
         self.intermediateFileTag = "temp"
         self.modelParameterStringName = None
-    
+
     def getSteps(self, steps):
         print >> sys.stderr, "Initializing steps:", steps
         if steps == None:
@@ -97,26 +98,26 @@ class ToolChain(Detector):
         # Alias expansion
         steps = list(itertools.chain(*[x.expandAlias() for x in steps]))
         return steps
-    
+
     def defineSteps(self):
         pass
-    
+
     def defGroup(self, group):
         self.group = group
-    
+
     def defStep(self, name, func, argDict=None, ioArgNames=None, funcCls=None, argListKey=None):
         assert name not in self.definedStepDict
         step = Step(name, func, argDict, ioArgNames, funcCls, argListKey, self.group)
         self.definedStepDict[name] = step
         self.definedSteps.append(step)
-    
+
     def defAlias(self, name, steps):
         assert name not in self.definedStepDict
         steps = [self.definedStepDict[x] for x in steps]
         step = Step(name, steps, None, None, None, None, self.group)
         self.definedStepDict[name] = step
         self.definedSteps.append(step)
-    
+
 #     def defineSteps(self, steps):
 #         steps = self.expandPresets(steps)
 #         for name in steps:
@@ -125,7 +126,7 @@ class ToolChain(Detector):
 #             step = self.allSteps[name]
 #             self.addStep(step["name"], step["function"], step["argDict"], None, step["ioArgNames"])
 #             #self.addStep(*([step] + self.allSteps[step][0:2] + [None]))
-    
+
 #     def expandPresets(self, steps):
 #         newSteps = []
 #         for step in steps:
@@ -135,18 +136,18 @@ class ToolChain(Detector):
 #             else:
 #                 newSteps.append(step)
 #         return newSteps
-#     
+#
 #     def initStepGroup(self, name):
 #         self.groups.append(name)
-    
+
 #     def initStep(self, name, function, argDict, intermediateFile=None, ioArgNames={"input":"input", "output":"output"}):
 #         assert name not in self.allSteps
 #         self.allSteps[name] = {"name":name, "function":function, "argDict":argDict, "intermediateFile":intermediateFile, "ioArgNames":ioArgNames, "group":len(self.groups) - 1}
 #         self.allStepsList.append(self.allSteps[name])
-        
+
     #def getDefaultSteps(self):
     #    return []
-    
+
 #     def getDefaultParameters(self, defaults=None, defaultValue=None):
 #         if defaults == None:
 #             defaults = {"omitSteps":None, "intermediateFiles":None}
@@ -160,7 +161,7 @@ class ToolChain(Detector):
 #                 #else:
 #                 #    defaults[parameterName] = defaultValue
 #         return defaults
-# 
+#
 #     def getParameters(self, parameters=None, model=None, defaultValue=None, modelParameterStringName=None):
 #         if modelParameterStringName == None:
 #             modelParameterStringName = self.modelParameterStringName
@@ -172,7 +173,7 @@ class ToolChain(Detector):
 #         valueLimits={"omitSteps":stepNames + [None], "intermediateFiles":stepNames + [True, None]}
 #         defaults = self.getDefaultParameters(defaultValue=defaultValue)
 #         return Parameters.get(parameters, defaults, valueLimits=valueLimits)
-    
+
 #     def applyParameters(self, parameters):
 #         self.select.markOmitSteps(parameters["omitSteps"])
 #         for step in self.steps:
@@ -187,33 +188,33 @@ class ToolChain(Detector):
 #                     self.setIntermediateFile(step["name"], step["intermediateFile"])
 #                 else:
 #                     self.setIntermediateFile(step["name"], None)
-    
+
     def hasStep(self, name):
         return name in [x.name for x in self.steps]
-    
+
     def getStep(self, name):
         return [x for x in self.steps if x.name == name][0]
-    
+
 #     def addStep(self, name, function, argDict, intermediateFile=None, ioArgNames={"input":"input", "output":"output"}):
 #         assert name not in [x["name"] for x in self.steps], (name, self.steps)
 #         self.steps.append({"name":name, "function":function, "argDict":argDict, "intermediateFile":intermediateFile, "ioArgNames":ioArgNames})
-#     
+#
 #     def insertStep(self, index, name, function, argDict, intermediateFile=None, ioArgNames={"input":"input", "output":"output"}):
 #         assert name not in [x["name"] for x in self.steps], (name, self.steps)
 #         self.steps.insert(index, {"name":name, "function":function, "argDict":argDict, "intermediateFile":intermediateFile, "ioArgNames":ioArgNames})
-        
+
     def setArgForAllSteps(self, argument, value, argMustExist=True):
         for step in self.steps:
             if argMustExist and argument not in step.argDict:
                 continue
             step.argDict[argument] = value
-    
+
 #     def stepArgs(self, stepName):
 #         for step in self.steps:
 #             if step == step["name"]:
 #                 return step.argDict
 #         raise Exception("Step '" + str(step) + "' is not defined")
-        
+
 #     def setIntermediateFile(self, stepName, filename):
 #         for s in self.steps:
 #             if stepName == s["name"]:
@@ -224,15 +225,15 @@ class ToolChain(Detector):
 #                 s[3] = filename
 #                 return
 #         assert False, (stepName, filename)
-    
+
 #     def setIntermediateFiles(self, stepToFilename):
 #         for key in sorted(stepToFilename.keys()):
 #             self.setIntermediateFile(key, stepToFilename[key])
-    
+
 #     def setIntermediateFiles(self, state):
 #         for step in self.steps:
 #             self.setIntermediateFile(step["name"], state)
-#     
+#
 #     def getIntermediateFilePath(self, step):
 #         if step["intermediateFile"] != None:
 #             if self.intermediateFilesAtSource:
@@ -247,11 +248,11 @@ class ToolChain(Detector):
 #             else:
 #                 rv = os.path.join(self.outDir, self.intermediateFileTag + "-" + step[3])
 #             if self.compressIntermediateFiles and not rv.endswith(".gz"):
-#                 rv += ".gz" 
+#                 rv += ".gz"
 #             return rv
 #         else:
 #             return None
-    
+
     def process(self, source, output, model=None, fromStep=None, toStep=None, omitSteps=None):
         #self.initVariables(source=input, xml=input, outDir=os.path.dirname(output))
         if output != None:
@@ -302,9 +303,10 @@ class ToolChain(Detector):
             return source
         else:
             return None
-    
+
     def save(self, input, output=None):
         xml = ETUtils.ETFromObj(input)
         print >> sys.stderr, "Writing output to", output
+        pdb.set_trace()
         ETUtils.write(input, output)
         return xml

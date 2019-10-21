@@ -17,20 +17,20 @@ class Evaluator:
         Compare overall performance between two sets of classified examples.
         """
         raise NotImplementedError
-    
+
     def getData(self):
         """
         Return the EvaluationData corresponding to the main evaluation criterion for this Evaluator.
         """
         raise NotImplementedError
-    
+
     def average(evaluators):
         """
         Return the average of the main evaluation criteria for this Evaluator type.
         """
         raise NotImplementedError
     average = staticmethod(average)
-    
+
     def pool(evaluators):
         """
         Return the average of the main evaluation criteria for this Evaluator type calculated
@@ -38,16 +38,16 @@ class Evaluator:
         """
         raise NotImplementedError
     pool = staticmethod(pool)
-    
+
     def _calculate(self, predictions):
         raise NotImplementedError
-    
+
     def toStringConcise(self, indent="", title=None):
         raise NotImplementedError
-    
+
     def toDict(self):
         raise NotImplementedError
-    
+
     def saveCSV(self, filename, fold=None):
         import sys
         sys.path.append("..")
@@ -69,12 +69,12 @@ class EvaluationData:
         self._tn = 0
         self._fn = 0
         self.resetStats()
-    
+
     def resetStats(self):
         self.fscore = None
         self.precision = None
         self.recall = None
-    
+
     def addInstance(self, trueClassIsPositive, predictedClassIsPositive):
         if trueClassIsPositive and predictedClassIsPositive:
             self.addTP()
@@ -84,7 +84,7 @@ class EvaluationData:
             self.addFP()
         else: # (not trueClassIsPositive) and (not predictedClassIsPositive)
             self.addTN()
-    
+
     def removeInstance(self, trueClassIsPositive, predictedClassIsPositive):
         self.resetStats()
         if trueClassIsPositive and predictedClassIsPositive:
@@ -95,7 +95,7 @@ class EvaluationData:
             self._fp -= 1
         else: # (not trueClassIsPositive) and (not predictedClassIsPositive)
             self._tn -= 1
-        
+
     def addTP(self, amount=1):
         self.resetStats()
         self._tp += amount
@@ -103,23 +103,23 @@ class EvaluationData:
     def addFP(self, amount=1):
         self.resetStats()
         self._fp += amount
-    
+
     def addTN(self, amount=1):
         self.resetStats()
         self._tn += amount
-    
+
     def addFN(self, amount=1):
         self.resetStats()
         self._fn += amount
-    
+
     def getTP(self): return self._tp
     def getFP(self): return self._fp
     def getTN(self): return self._tn
     def getFN(self): return self._fn
-    
+
     def getNumInstances(self):
         return self._tp + self._fp + self._tn + self._fn
-    
+
     def calculateFScore(self):
         assert self._tp >= 0 and self._fp >= 0 and self._tn >= 0 and self._fn >= 0, (self._tp, self._fp, self._tn, self._fn)
         if self._tp + self._fp > 0:
@@ -134,24 +134,24 @@ class EvaluationData:
             self.fscore = (2*self.precision*self.recall) / (self.precision + self.recall)
         else:
             self.fscore = 0
-    
+
     def prfToString(self):
         if self.fscore != "N/A":
             return "p/r/f:" + str(self.precision)[0:6] + "/" + str(self.recall)[0:6] + "/" + str(self.fscore)[0:6]
         else:
             return "p/r/f:N/A"
-    
+
     def pnToString(self):
         return "p/n:" + str(self._tp+self._fn) + "/" + str(self._tn+self._fp)
-    
+
     def instanceCountsToString(self):
         return "tp/fp|tn/fn:" + str(self._tp) + "/" + str(self._fp) + "|" + str(self._tn) + "/" + str(self._fn)
-    
+
     def toStringConcise(self):
         return self.pnToString() + " " + self.instanceCountsToString() + " " + self.prfToString()
 
     def toDict(self):
-        values = {}        
+        values = {}
         values["positives"] = self._tp+self._fn
         values["negatives"] = self._tn+self._fp
         values["true positives"] = self._tp
@@ -163,7 +163,7 @@ class EvaluationData:
         values["f-score"] = self.fscore
         values["AUC"] = "N/A"
         return values
-    
+
     def saveCSV(self, filename, fold=None):
         global g_evaluatorFieldnames
         import sys
@@ -179,7 +179,7 @@ class EvaluationData:
 def calculateFromCSV(rows, EvaluatorClass, classSet=None):
     if EvaluatorClass().type == "multiclass" and classSet == None:
         classSet = getClassSet(rows)
-        
+
     predictions = []
     for row in rows:
         if classSet != None:
@@ -195,7 +195,7 @@ def getClassSet(rows, classSet=None):
     for row in rows:
         classNames.add(row["class"])
         classNames.add(row["prediction"])
-    
+
     # In the case of multiclass, give integer id:s for the classes
     if classSet == None:
         classSet = IdSet()
@@ -209,28 +209,28 @@ def getClassSet(rows, classSet=None):
         if i != "1" and i != "neg":
             classSet.getId(i)
     return classSet
-                
+
 def evaluateCSV(rows, options, EvaluatorClass = None):
     import sys, os
     sys.path.append("..")
     from Core.IdSet import IdSet
     import Utils.TableUtils as TableUtils
-    
+
     if EvaluatorClass == None:
         print >> sys.stderr, "Importing modules"
         exec "from Evaluators." + options.evaluator + " import " + options.evaluator + " as EvaluatorClass"
-    
+
     foldDict = {}
     for row in rows:
         if row["fold"] != None and row["fold"] != "":
             if not foldDict.has_key(row["fold"]):
                 foldDict[row["fold"]] = []
             foldDict[row["fold"]].append(row)
-    
+
     classSet = None
     if EvaluatorClass().type == "multiclass":
         classSet = getClassSet(rows)
-    
+
     # Calculate performance per fold and the averages
     if len(foldDict) == 0:
         evaluator = calculateFromCSV(rows, EvaluatorClass, classSet)
@@ -282,7 +282,7 @@ if __name__=="__main__":
 
     print >> sys.stderr, "Importing modules"
     exec "from Evaluators." + options.evaluator + " import " + options.evaluator + " as EvaluatorClass"
-    
+
     if options.output != None:
         print >> sys.stderr, "Outputfile exists, removing", options.output
         if os.path.exists(options.output):

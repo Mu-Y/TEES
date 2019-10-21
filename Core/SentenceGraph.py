@@ -11,6 +11,8 @@ import Utils.Range as Range
 import types
 import copy
 import re
+import pdb
+import pickle
 
 #multiedges = True
 
@@ -23,7 +25,7 @@ def loadCorpus(corpus, parse, tokenization=None, removeNameInfo=False, removeInt
     import sys
     from Utils.ProgressCounter import ProgressCounter
     from Utils.InteractionXML.CorpusElements import CorpusElements
-    
+
     # Corpus may be in file or not
     if type(corpus) == types.StringType:
         print >> sys.stderr, "Loading corpus file", corpus
@@ -41,11 +43,11 @@ def loadCorpus(corpus, parse, tokenization=None, removeNameInfo=False, removeInt
         counter.update(1, "Making sentence graphs ("+sentence.sentence.get("id")+"): ")
         # No tokens, no sentence. No also no dependencies = no sentence.
         # Let's not remove them though, so that we don't lose sentences from input.
-        if len(sentence.tokens) == 0: # or len(sentence.dependencies) == 0: 
+        if len(sentence.tokens) == 0: # or len(sentence.dependencies) == 0:
             #corpusElements.sentences.remove(sentence)
             sentence.sentenceGraph = None
             continue
-        for pair in sentence.pairs:
+        for pair in sentence.pairs:  # pairs are all EMPTY lists, i.e. the pairs are not used for example builder in unmerging stage - Mu
             # gif-xml defines two closely related element types, interactions and
             # pairs. Pairs are like interactions, but they can also be negative (if
             # interaction-attribute == False). Sometimes pair-elements have been
@@ -60,13 +62,14 @@ def loadCorpus(corpus, parse, tokenization=None, removeNameInfo=False, removeInt
         # Construct the basic SentenceGraph (only syntactic information)
         graph = SentenceGraph(sentence.sentence, sentence.tokens, sentence.dependencies)
         # Add semantic information, i.e. the interactions
+        # pdb.set_trace()
         graph.mapInteractions(sentence.entities + [x for x in sentence.sentence.iter("span")], sentence.interactions)
         graph.interSentenceInteractions = sentence.interSentenceInteractions
         duplicateInteractionEdgesRemoved += graph.duplicateInteractionEdgesRemoved
         sentence.sentenceGraph = graph
-        
+
         graph.parseElement = sentence.parseElement
-        
+
         #graph.mapEntityHints()
     print >> sys.stderr, "Skipped", duplicateInteractionEdgesRemoved, "duplicate interaction edges in SentenceGraphs"
     return corpusElements
@@ -75,7 +78,7 @@ def getCorpusIterator(input, output, parse, tokenization=None, removeNameInfo=Fa
     import Utils.ElementTreeUtils as ETUtils
     from Utils.InteractionXML.SentenceElements import SentenceElements
     #import xml.etree.cElementTree as ElementTree
-    
+
     if output != None:
         etWriter = ETUtils.ETWriter(output)
     for eTuple in ETUtils.ETIteratorFromObj(input, ("start", "end")):
@@ -85,7 +88,7 @@ def getCorpusIterator(input, output, parse, tokenization=None, removeNameInfo=Fa
             for sentenceElement in element.findall("sentence"):
                 #print ElementTree.tostring(sentenceElement)
                 sentence = SentenceElements(sentenceElement, parse, tokenization, removeIntersentenceInteractions=removeIntersentenceInteractions)
-                if len(sentence.tokens) == 0: # or len(sentence.dependencies) == 0: 
+                if len(sentence.tokens) == 0: # or len(sentence.dependencies) == 0:
                     sentence.sentenceGraph = None
                 else:
                     # Construct the basic SentenceGraph (only syntactic information)
@@ -123,13 +126,13 @@ class SentenceGraph:
         """
         Creates the syntactic graph part of the SentenceGraph. The semantic graph
         can be added with mapInteractions.
-        
+
         @param sentenceElement: interaction-XML sentence-element
         @type sentenceElement: cElementTree.Element
         @param tokenElements: interaction-XML syntactic token elements
         @type tokenElements: list of cElementTree.Element objects
         @param dependencyElements: interacton-XML syntactic dependency elements
-        @type dependencyElements: list of cElementTree.Element objects   
+        @type dependencyElements: list of cElementTree.Element objects
         """
         self.sentenceElement = sentenceElement
         self.tokens = tokenElements
@@ -150,7 +153,7 @@ class SentenceGraph:
         self.mergedEntities = None
         self.mergedEntityToDuplicates = None
         self.mergedEntityGraph = None
-        
+
         self.tokensById = {}
         for token in self.tokens:
             self.tokensById[token.get("id")] = token
@@ -164,7 +167,7 @@ class SentenceGraph:
             t2 = self.tokensById.get(dependency.get("t2"))
             assert t1 != None and t2 != None, (t1, t2, self.tokensById.keys())
             self.dependencyGraph.addEdge(t1, t2, dependency)
-    
+
 #    def getUndirectedDependencyGraph(self):
 #        """
 #        Create an undirected version of the syntactic dependency graph.
@@ -178,10 +181,10 @@ class SentenceGraph:
 #            u.add_edge(self.tokensById[dependency.attrib["t2"]],\
 #              self.tokensById[dependency.attrib["t1"]], element=dependency)
 #        return u
-    
+
     def getSentenceId(self):
         return self.sentenceElement.get("id")
-    
+
     def makeEntityGraph(self, entities, interactions, entityToDuplicates=None):
         graph = Graph()
         graph.addNodes(entities)
@@ -200,7 +203,7 @@ class SentenceGraph:
                     entities.append(e2Id)
                     entityToDuplicates[e2Id] = []
                 e2 = e2Id # make a dummy node
-            else: 
+            else:
                 e2 = self.entitiesById[e2Id]
             if e1 not in interactionMap:
                 interactionMap[e1] = {}
@@ -219,17 +222,17 @@ class SentenceGraph:
                                     graph.addEdge(e1, e2, interaction) # add primary and duplicate edges for the main entity pair
                                     interactionTypes.add(interaction.get("type"))
         return graph
-    
+
     # TODO: This method shouldn't be needed anymore
     def getInteractions(self, entity1, entity2, merged=False):
         """
         Return a list of interaction-elements which represent directed
         interactions from entity1 to entity2.
-        
+
         @param entity1: a semantic node (trigger or named entity)
-        @type entity1: cElementTree.Element 
+        @type entity1: cElementTree.Element
         @param entity2: a semantic node (trigger or named entity)
-        @type entity2: cElementTree.Element 
+        @type entity2: cElementTree.Element
         """
         if merged:
             # Note: mergeInteractionGraph must be called before
@@ -242,7 +245,7 @@ class SentenceGraph:
             if self.entityGraph == None:
                 self.entityGraph = self.makeEntityGraph(self.entities, self.interactions)
             return self.entityGraph.getEdges(entity1, entity2)
-    
+
     def getOutInteractions(self, entity, merged=False):
         if merged:
             # Note: mergeInteractionGraph must be called before
@@ -262,24 +265,24 @@ class SentenceGraph:
 #            if interaction.get("e1") == entity1.get("id") and interaction.get("e2") == entity2.get("id"):
 #                rv.append(interaction)
 #        return rv
-    
+
     def mapInteractions(self, entityElements, interactionElements, verbose=False):
         """
         Maps the semantic interactions to the syntactic graph.
-        
+
         Syntactic dependencies are defined between tokens. Semantic edges (interactions)
         are defined between annotated entities. To utilize the correlation of the dependency
         parse with the semantic interactions, the graphs must be aligned by mapping the
         interaction graph's nodes (entities) to the syntactic graph's nodes (tokens). This
         is done by determining the head tokens of the entities.
-        
+
         @param entityElements: the semantic nodes (triggers and named entities)
         @type entityElements: list of cElementTree.Element objects
         @param interactionElements: the semantic edges (e.g. Cause and Theme for GENIA)
         @type interactionElements: list of cElementTree.Element objects
         @param verbose: Print selected head tokens on screen
         @param verbose: boolean
-        """     
+        """
         self.interactions = interactionElements
         self.entities = entityElements
         # Entities that have no text binding can not be mapped and are therefore removed
@@ -295,7 +298,7 @@ class SentenceGraph:
         self.interactionGraph.addNodes(self.tokens)
         #for token in self.tokens:
         #    self.interactionGraph.add_node(token)
-        
+
         self.entitiesByToken = {} # a mapping for fast access
         self.entitiesById = {}
         self.entityHeadTokenByEntity = {}
@@ -314,7 +317,7 @@ class SentenceGraph:
                 # Assume there simply is no token corresponding to the entity
                 self.entities.remove(entity)
         self._markNamedEntities()
-        
+
         for interaction in self.interactions:
             if not self.entitiesById.has_key(interaction.get("e1")):
                 continue # e1 is outside of this sentence
@@ -322,7 +325,7 @@ class SentenceGraph:
                 continue # e2 is outside of this sentence
             token1 = self.entityHeadTokenByEntity[self.entitiesById[interaction.get("e1")]]
             token2 = self.entityHeadTokenByEntity[self.entitiesById[interaction.get("e2")]]
-            
+
 #            found = False
 #            if multiedges:
 #                edges = self.interactionGraph.get_edge_data(token1, token2, default={})
@@ -346,12 +349,12 @@ class SentenceGraph:
             else:
                 # TODO: "skipped" would be better than "removed"
                 self.duplicateInteractionEdgesRemoved += 1
-    
+
     def mapEntity(self, entityElement, verbose=False):
         """
         Determine the head token for a named entity or trigger. The head token is the token closest
         to the root for the subtree of the dependency parse spanned by the text of the element.
-        
+
         @param entityElement: a semantic node (trigger or named entity)
         @type entityElement: cElementTree.Element
         @param verbose: Print selected head tokens on screen
@@ -393,7 +396,7 @@ class SentenceGraph:
                             selHead = t
                             break
                     if selHead != None:
-                        break    
+                        break
 #                     if compText.find("bind") != -1 or compText.find("complex") != -1:
 #                         selHead = t
 #                         #print "Head:", selHead.get("text"), "/", entityElement.get("text"), entityElement.get("headOffset"), selHead.get("charOffset")
@@ -404,7 +407,7 @@ class SentenceGraph:
 #                 regulationHeads = [x for x in headTokens if self.tokenHeadScores[x] >= 1]
 #                 if len(regulationHeads) > 0:
 #                     selHead = regulationHeads[-1]
-            if selHead == None: 
+            if selHead == None:
                 token = self.findHeadToken(headTokens)
             else:
                 token = selHead
@@ -421,12 +424,12 @@ class SentenceGraph:
         else:
             print >> sys.stderr, "Warning, no tokens for entity", entityElement.get("id")
         return token
-    
+
 #    def mapEntityHints(self, verbose=False):
 #        """
 #        Determine the head token for a named entity or trigger. The head token is the token closest
 #        to the root for the subtree of the dependency parse spanned by the text of the element.
-#        
+#
 #        @param entityElement: a semantic node (trigger or named entity)
 #        @type entityElement: cElementTree.Element
 #        @param verbose: Print selected head tokens on screen
@@ -473,7 +476,7 @@ class SentenceGraph:
 #                if not self.entityHintsByToken.has_key(token):
 #                    self.entityHintsByToken[token] = []
 #                self.entityHintsByToken[token].append(entityElement)
-    
+
 #     def findHeadToken(self, candidateTokens):
 #         return sorted([(int(x.get("headScore")), x) for x in candidateTokens])[0][-1]
 
@@ -516,19 +519,19 @@ class SentenceGraph:
         """
         Select the candidate token that is closest to the root of the subtree of the depencdeny parse
         to which the candidate tokens belong to. See getTokenHeadScores method for the algorithm.
-        
+
         @param candidateTokens: the list of syntactic tokens from which the head token is selected
         @type candidateTokens: list of cElementTree.Element objects
         """
         tokenHeadScores = self.getTokenHeadScores()
-        
+
         #if debug:
         #    print "Tokens:", candidateTokenIds
         #    print "Scores:", tokenScores
-        
+
         if len(candidateTokens) == 0:
             return None
-        
+
         highestScore = -9999999
         bestTokens = []
         for token in candidateTokens:
@@ -542,7 +545,7 @@ class SentenceGraph:
 #            for i in range(len(candidateTokenIds)):
 #                print "[", candidateTokenIds[i], self.tokensById[candidateTokenIds[i]].text, tokenHeadScores[candidateTokenIds[i]], "]"
         return bestTokens[-1]
-    
+
     def getTokenHeadScores(self):
         """
         A head token is chosen using a heuristic that prefers tokens closer to the
@@ -555,7 +558,7 @@ class SentenceGraph:
             return self.tokenHeadScores
         else:
             self.tokenHeadScores = {}
-        
+
         # Give all tokens initial scores
         tokenById = {}
         for token in self.tokens:
@@ -566,14 +569,14 @@ class SentenceGraph:
             for dependency in self.dependencies:
                 if dependency.get("t1") == token.get("id") or dependency.get("t2") == token.get("id"):
                     self.tokenHeadScores[token] = 1 # token is connected by a dependency
-                    break               
-        
+                    break
+
         # Give a low score for tokens that clearly can't be head and are probably produced by hyphen-splitter
         for token in self.tokens:
             tokenText = token.get("text")
             if tokenText == "\\" or tokenText == "/" or tokenText == "-":
                 self.tokenHeadScores[token] = -1
-        
+
         # Loop over all dependencies and increase the scores of all governor tokens
         # until each governor token has a higher score than its dependent token.
         # Some dependencies might form a loop so a list is used to define those
@@ -604,11 +607,11 @@ class SentenceGraph:
 #                                self.tokenHeadScores[tokenJ] = self.tokenHeadScores[tokenI] + 1
 #                                modifiedScores = True
             loopCount += 1
-        
+
         # Add scores to tokens
         for token in self.tokens:
             token.set("headScore", str(self.tokenHeadScores[token]))
-            
+
         return self.tokenHeadScores
 
     def _markNamedEntities(self):
@@ -644,12 +647,12 @@ class SentenceGraph:
 #                            self.tokenIsName[token] = True
                 if Range.overlap(entityHeadOffset, tokenOffset):
                     self.tokenIsEntityHead[token].append(entity)
-                                                          
+
     def getTokenText(self, token):
         """
         Returns the text of a token, and masks it if the token is the head token
         of a named entity.
-        
+
         @param token: interaction-XML syntactic token.
         @type token: cElementTree.Element
         """
@@ -657,7 +660,7 @@ class SentenceGraph:
             return "NAMED_ENT"
         else:
             return token.get("text")
-    
+
     def getCleared(self):
         c = SentenceGraph(self.sentenceElement, self.tokens, self.dependencies)
         namedEntities = []
@@ -666,14 +669,15 @@ class SentenceGraph:
                 namedEntities.append(entity)
         c.mapInteractions(namedEntities, [])
         return c
-    
+
     def mergeInteractionGraph(self, merge=True):
         """
         For merging duplicate entities
-        
+
         keepDuplicates - allows calling the function with no effect, so that the same code
                          can be used for merged and unmerged cases
         """
+        # pdb.set_trace()
         self.mergedEntities = []
         self.mergedEntityToDuplicates = {}
         #duplicates = {}
@@ -706,4 +710,4 @@ class SentenceGraph:
                     removeEntities[j] = True
                     #mergedIds[entities[i]] += "/" + entities[j].get("id")
                     self.mergedEntityToDuplicates[self.entities[i]].append(self.entities[j])
-        #return entitiesToKeep, mergedIds, duplicates     
+        #return entitiesToKeep, mergedIds, duplicates
