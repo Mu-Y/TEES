@@ -37,8 +37,6 @@ def process(documents, debug=False):
         duplDict = {}
         for rootEvent in rootEvents:
             newEvents.extend(duplicateEquiv(rootEvent, duplDict, debug))
-            if doc.id == '10080532':
-                pdb.set_trace()
         # Regenerate the flat event list in the document
         doc.events = rebuildEventList(newEvents)
         doc.events.sort(key = lambda x: (x.id[0], int(x.id[1:].split(".")[0]), x.id[1:].split(".")[-1]) )

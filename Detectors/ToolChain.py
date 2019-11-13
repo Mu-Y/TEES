@@ -307,6 +307,6 @@ class ToolChain(Detector):
     def save(self, input, output=None):
         xml = ETUtils.ETFromObj(input)
         print >> sys.stderr, "Writing output to", output
-        pdb.set_trace()
+        # pdb.set_trace()
         ETUtils.write(input, output)
         return xml

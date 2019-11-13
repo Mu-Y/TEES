@@ -344,7 +344,7 @@ class Preprocessor(ToolChain):
         if len(documents) > 0:
             print >> sys.stderr, "Resolving equivalences"
             Utils.STFormat.Equiv.process(documents)
-            pdb.set_trace()
+            # pdb.set_trace()
             xml = Utils.STFormat.ConvertXML.toInteractionXML(documents, corpusName, output)
             # after the execution of the above line, documents still only contains the raw number of events plus the duplicated ones from Equiv handling
             # pdb.set_trace()
